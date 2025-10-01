@@ -14,83 +14,81 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Checkout code
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Step 2: Set up Flutter
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.22.5'  # Using stable version
+      # Step 2: Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.5'  # Stable version
 
-    # Step 3: Install dependencies
-    - name: Install dependencies
-      run: flutter pub get
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
 
-    # Step 4: Run tests (optional)
-    - name: Run tests
-      run: flutter test
+      # Step 4: Run tests (optional)
+      - name: Run tests
+        run: flutter test
 
-    # Step 5: Build APK
-    - name: Build APK
-      run: flutter build apk --release
+      # Step 5: Build APK
+      - name: Build APK
+        run: flutter build apk --release
 
-    # Step 6: Verify APK exists
-    - name: Verify APK file
-      run: |
-        ls -la build/app/outputs/flutter-apk/
-        if [ ! -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-          echo "❌ APK file not found!"
-          exit 1
-        fi
+      # Step 6: Verify APK exists
+      - name: Verify APK file
+        run: |
+          ls -la build/app/outputs/flutter-apk/
+          if [ ! -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            echo "❌ APK file not found!"
+            exit 1
+          fi
 
-    # Step 7: Install rclone
-    - name: Install rclone
-      run: |
-        curl -O https://downloads.rclone.org/rclone-current-linux-amd64.deb
-        sudo dpkg -i rclone-current-linux-amd64.deb
-        rclone version
+      # Step 7: Install rclone
+      - name: Install rclone
+        run: |
+          curl -O https://downloads.rclone.org/rclone-current-linux-amd64.deb
+          sudo dpkg -i rclone-current-linux-amd64.deb
+          rclone version
 
-    # Step 8: Configure rclone with service account credentials
-    - name: Configure rclone
-      run: |
-        mkdir -p ~/.config/rclone
-        cat > ~/.config/rclone/rclone.conf << EOF
-        [gdrive]
-        type = drive
-        scope = drive.file
-        token = ${{ secrets.GDRIVE_TOKEN }}
-        client_id = ${{ secrets.GDRIVE_CLIENT_ID }}
-        client_secret = ${{ secrets.GDRIVE_CLIENT_SECRET }}
-        EOF
-        
-        # Test the configuration
-        echo "Testing rclone configuration..."
-        rclone ls gdrive: --config ~/.config/rclone/rclone.conf || echo "Configuration test failed"
+      # Step 8: Configure rclone with secrets
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "[gdrive]" > ~/.config/rclone/rclone.conf
+          echo "type = drive" >> ~/.config/rclone/rclone.conf
+          echo "scope = drive.file" >> ~/.config/rclone/rclone.conf
+          echo "token = ${{ secrets.GDRIVE_TOKEN }}" >> ~/.config/rclone/rclone.conf
+          echo "client_id = ${{ secrets.GDRIVE_CLIENT_ID }}" >> ~/.config/rclone/rclone.conf
+          echo "client_secret = ${{ secrets.GDRIVE_CLIENT_SECRET }}" >> ~/.config/rclone/rclone.conf
 
-    # Step 9: Create target directory if it doesn't exist
-    - name: Create target directory
-      run: |
-        rclone mkdir gdrive:"Flutter CI" --config ~/.config/rclone/rclone.conf || echo "Directory may already exist"
+          # Test rclone config
+          echo "Testing rclone configuration..."
+          rclone ls gdrive: --config ~/.config/rclone/rclone.conf || echo "Configuration test failed"
 
-    # Step 10: Upload APK to Google Drive
-    - name: Upload APK to Google Drive
-      run: |
-        echo "Uploading APK to Google Drive..."
-        rclone copy -v --progress \
-          build/app/outputs/flutter-apk/app-release.apk \
-          "gdrive:Flutter CI/" \
-          --config ~/.config/rclone/rclone.conf
-        
-        echo "✅ Upload completed!"
-        echo "Listing files in target directory:"
-        rclone ls gdrive:"Flutter CI" --config ~/.config/rclone/rclone.conf
+      # Step 9: Create target directory in Drive
+      - name: Create target directory
+        run: |
+          rclone mkdir "gdrive:Flutter CI" --config ~/.config/rclone/rclone.conf || echo "Directory may already exist"
 
-    # Step 11: Upload APK as workflow artifact (backup)
-    - name: Upload APK as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: flutter-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 7
+      # Step 10: Upload APK to Google Drive
+      - name: Upload APK to Google Drive
+        run: |
+          echo "Uploading APK to Google Drive..."
+          rclone copy -v --progress \
+            build/app/outputs/flutter-apk/app-release.apk \
+            "gdrive:Flutter CI/" \
+            --config ~/.config/rclone/rclone.conf
+
+          echo "✅ Upload completed!"
+          echo "Listing files in target directory:"
+          rclone ls "gdrive:Flutter CI" --config ~/.config/rclone/rclone.conf
+
+      # Step 11: Upload APK as workflow artifact (backup)
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
