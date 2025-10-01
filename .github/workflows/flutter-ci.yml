@@ -1,5 +1,6 @@
-name: Flutter Build and Upload to Google Drive
+name: Flutter CI
 
+# Trigger workflow on push or pull request
 on:
   push:
     branches:
@@ -10,77 +11,29 @@ on:
 
 jobs:
   build:
-    name: Build & Upload
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # Step 2: Set up Flutter
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.5'
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.32.5'
 
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: flutter pub get
+    - name: Install dependencies
+      run: flutter pub get
 
-      # Step 4: Run tests
-      - name: Run tests
-        run: flutter test --coverage
+    - name: Run tests
+      run: flutter test --coverage
 
-      # Step 5: Build APK
-      - name: Build APK
-        run: flutter build apk --release
+    - name: Build APK
+      run: flutter build apk --release
 
-      # Step 6: Verify APK exists
-      - name: Verify APK file
-        run: |
-          ls -la build/app/outputs/flutter-apk/
-          if [ ! -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-            echo "❌ APK file not found!"
-            exit 1
-          fi
-
-      # Step 7: Install rclone
-      - name: Install rclone
-        run: |
-          curl -O https://downloads.rclone.org/rclone-current-linux-amd64.deb
-          sudo dpkg -i rclone-current-linux-amd64.deb
-          rclone version
-
-      # Step 8: Configure rclone with GitHub secrets
-      - name: Configure rclone
-        run: |
-          mkdir -p ~/.config/rclone
-          echo "[gdrive]" > ~/.config/rclone/rclone.conf
-          echo "type = drive" >> ~/.config/rclone/rclone.conf
-          echo "scope = drive.file" >> ~/.config/rclone/rclone.conf
-          echo "token = ${{ secrets.GDRIVE_TOKEN }}" >> ~/.config/rclone/rclone.conf
-          echo "client_id = ${{ secrets.GDRIVE_CLIENT_ID }}" >> ~/.config/rclone/rclone.conf
-          echo "client_secret = ${{ secrets.GDRIVE_CLIENT_SECRET }}" >> ~/.config/rclone/rclone.conf
-
-      # Step 9: Create target directory in Drive (if it doesn’t exist)
-      - name: Create target directory
-        run: rclone mkdir "gdrive:Flutter CI" --config ~/.config/rclone/rclone.conf || echo "Directory already exists"
-
-      # Step 10: Upload APK to Google Drive
-      - name: Upload APK to Google Drive
-        run: |
-          echo "Uploading APK to Google Drive..."
-          rclone copy -v --progress \
-            build/app/outputs/flutter-apk/app-release.apk \
-            "gdrive:Flutter CI/" \
-            --config ~/.config/rclone/rclone.conf
-          echo "✅ Upload completed!"
-          rclone ls "gdrive:Flutter CI" --config ~/.config/rclone/rclone.conf
-
-      # Step 11: Upload APK as GitHub artifact (backup)
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release.apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release.apk
+        path: build/app/outputs/flutter-apk/app-release.apk
