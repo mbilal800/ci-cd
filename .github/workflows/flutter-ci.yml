@@ -1,6 +1,5 @@
-name: Flutter CI
+name: Flutter CI + Upload to Google Drive
 
-# Trigger workflow on push or pull request
 on:
   push:
     branches:
@@ -11,29 +10,44 @@ on:
 
 jobs:
   build:
-    name: Build & Test
+    name: Build APK & Upload
     runs-on: ubuntu-latest
 
     steps:
+    # Step 1: Checkout code
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    # Step 2: Set up Flutter
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.32.5'
 
+    # Step 3: Install dependencies
     - name: Install dependencies
       run: flutter pub get
 
+    # Step 4: Run tests
     - name: Run tests
       run: flutter test --coverage
 
+    # Step 5: Build APK
     - name: Build APK
       run: flutter build apk --release
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release.apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+    # Step 6: Install rclone
+    - name: Install rclone
+      run: |
+        curl https://rclone.org/install.sh | sudo bash
+
+    # Step 7: Configure rclone with secret
+    - name: Configure rclone
+      run: |
+        mkdir -p ~/.config/rclone
+        echo "${{ secrets.GDRIVE_CREDS }}" > ~/.config/rclone/rclone.conf
+
+    # Step 8: Upload APK to Google Drive
+    - name: Upload APK to Google Drive
+      run: |
+        rclone copy build/app/outputs/flutter-apk/app-release.apk "gdrive:Flutter CI"
