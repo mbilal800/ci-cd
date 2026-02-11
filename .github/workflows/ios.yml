@@ -1,0 +1,46 @@
+name: Flutter iOS CI
+
+# Trigger workflow on push or pull request
+on:
+  push:
+    branches:
+      - main        # change if needed
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build & Test iOS
+    runs-on: macos-latest   # 👈 REQUIRED for iOS
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.5'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test --coverage
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Build IPA
+        run: flutter build ipa --release --no-codesign
+
+
+      - name: Upload iOS Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-build
+          path: build/ios/iphoneos
